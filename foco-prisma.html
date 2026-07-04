@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="pt">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Foco Prisma</title>
+    <link rel="stylesheet" href="./foco-prisma.css" />
+  </head>
+  <body>
+    <main class="app" aria-label="Jogo Foco Prisma">
+      <section class="hud" aria-label="Painel do jogo">
+        <div class="brand">
+          <span class="mark" aria-hidden="true"></span>
+          <div>
+            <h1>Foco Prisma</h1>
+            <p>Toque apenas no alvo pedido. Ignore as distrações.</p>
+          </div>
+        </div>
+
+        <div class="meters" aria-label="Indicadores">
+          <div class="meter">
+            <span>Foco</span>
+            <strong id="score">0</strong>
+          </div>
+          <div class="meter">
+            <span>Sequência</span>
+            <strong id="streak">0</strong>
+          </div>
+          <div class="meter">
+            <span>Tempo</span>
+            <strong id="time">60</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="mission" aria-label="Missão atual">
+        <div class="target-card">
+          <span class="target-label">Alvo</span>
+          <div class="target-symbol" id="targetSymbol" aria-hidden="true"></div>
+          <strong id="targetText">Azul circular</strong>
+        </div>
+        <div class="controls">
+          <button id="startBtn" type="button">Começar</button>
+          <button id="pauseBtn" type="button" aria-pressed="false">Pausar</button>
+          <button id="resetBtn" type="button">Reiniciar</button>
+        </div>
+      </section>
+
+      <section class="stage-wrap" aria-label="Área de treino">
+        <canvas id="game" width="1120" height="660"></canvas>
+        <div class="overlay show" id="overlay">
+          <div class="overlay-panel">
+            <h2>Treine atenção em 60 segundos</h2>
+            <p>O jogo mostra um alvo. Clique nas peças iguais e deixe as parecidas passarem. Quanto mais calma e precisão, maior o foco.</p>
+            <button id="overlayStart" type="button">Jogar agora</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="summary" aria-label="Resumo de desempenho">
+        <div>
+          <span>Precisão</span>
+          <strong id="accuracy">100%</strong>
+        </div>
+        <div>
+          <span>Nível</span>
+          <strong id="level">1</strong>
+        </div>
+        <div>
+          <span>Estado</span>
+          <strong id="state">Pronto</strong>
+        </div>
+      </section>
+    </main>
+
+    <script src="./foco-prisma.js"></script>
+  </body>
+</html>
