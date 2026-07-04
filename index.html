@@ -2,57 +2,73 @@
 <html lang="pt">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Foco Prisma</title>
     <link rel="stylesheet" href="./foco-prisma.css" />
   </head>
   <body>
     <main class="app" aria-label="Jogo Foco Prisma">
-      <section class="hud" aria-label="Painel do jogo">
+      <section class="topbar" aria-label="Painel principal">
         <div class="brand">
           <span class="mark" aria-hidden="true"></span>
           <div>
             <h1>Foco Prisma</h1>
-            <p>Toque apenas no alvo pedido. Ignore as distrações.</p>
+            <p>Treino rápido de foco, precisão e atenção seletiva.</p>
           </div>
         </div>
 
-        <div class="meters" aria-label="Indicadores">
-          <div class="meter">
+        <div class="meters" aria-label="Indicadores do jogo">
+          <div class="meter score">
             <span>Foco</span>
             <strong id="score">0</strong>
           </div>
           <div class="meter">
-            <span>Sequência</span>
+            <span>Combo</span>
             <strong id="streak">0</strong>
           </div>
           <div class="meter">
             <span>Tempo</span>
             <strong id="time">60</strong>
           </div>
+          <div class="meter">
+            <span>Recorde</span>
+            <strong id="best">0</strong>
+          </div>
         </div>
       </section>
 
-      <section class="mission" aria-label="Missão atual">
+      <section class="mission" aria-label="Missao atual">
         <div class="target-card">
-          <span class="target-label">Alvo</span>
+          <span class="target-label">Alvo atual</span>
           <div class="target-symbol" id="targetSymbol" aria-hidden="true"></div>
           <strong id="targetText">Azul circular</strong>
         </div>
-        <div class="controls">
-          <button id="startBtn" type="button">Começar</button>
+
+        <div class="mode-tabs" aria-label="Tipos de treino">
+          <button class="mode-btn active" type="button" data-mode="selective" aria-pressed="true">Alvo único</button>
+          <button class="mode-btn" type="button" data-mode="sequence" aria-pressed="false">Sequência</button>
+          <button class="mode-btn" type="button" data-mode="pulse" aria-pressed="false">Pulso</button>
+        </div>
+
+        <div class="controls" aria-label="Controlos">
+          <button id="startBtn" class="primary" type="button">Começar</button>
           <button id="pauseBtn" type="button" aria-pressed="false">Pausar</button>
+          <button id="soundBtn" type="button" aria-pressed="false">Som ligado</button>
           <button id="resetBtn" type="button">Reiniciar</button>
         </div>
       </section>
 
-      <section class="stage-wrap" aria-label="Área de treino">
+      <section class="stage-wrap" aria-label="Area de treino">
+        <div class="timebar" aria-hidden="true"><span id="timebarFill"></span></div>
         <canvas id="game" width="1120" height="660"></canvas>
+        <div class="feedback" id="feedback" aria-live="polite">Respire. Observe. Toque apenas no alvo.</div>
+
         <div class="overlay show" id="overlay">
           <div class="overlay-panel">
-            <h2>Treine atenção em 60 segundos</h2>
-            <p>O jogo mostra um alvo. Clique nas peças iguais e deixe as parecidas passarem. Quanto mais calma e precisão, maior o foco.</p>
-            <button id="overlayStart" type="button">Jogar agora</button>
+            <span class="eyebrow">sessão de 60 segundos</span>
+            <h2>Entre no modo foco</h2>
+            <p id="modeDescription">Alvo único: toque apenas nas peças que combinam com o alvo. As distrações ficam mais parecidas com o tempo, então jogue com calma e precisão.</p>
+            <button id="overlayStart" class="primary" type="button">Jogar agora</button>
           </div>
         </div>
       </section>
@@ -65,6 +81,10 @@
         <div>
           <span>Nível</span>
           <strong id="level">1</strong>
+        </div>
+        <div>
+          <span>Ritmo</span>
+          <strong id="tempo">Calmo</strong>
         </div>
         <div>
           <span>Estado</span>
