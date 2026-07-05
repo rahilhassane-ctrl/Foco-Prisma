@@ -6,8 +6,11 @@ const streakEl = document.querySelector("#streak");
 const timeEl = document.querySelector("#time");
 const bestEl = document.querySelector("#best");
 const accuracyEl = document.querySelector("#accuracy");
+const qualityEl = document.querySelector("#quality");
 const levelEl = document.querySelector("#level");
 const tempoEl = document.querySelector("#tempo");
+const todayEl = document.querySelector("#today");
+const goalEl = document.querySelector("#goal");
 const stateEl = document.querySelector("#state");
 const targetTextEl = document.querySelector("#targetText");
 const targetSymbolEl = document.querySelector("#targetSymbol");
@@ -16,11 +19,18 @@ const feedbackEl = document.querySelector("#feedback");
 const overlay = document.querySelector("#overlay");
 const startBtn = document.querySelector("#startBtn");
 const pauseBtn = document.querySelector("#pauseBtn");
+const breathBtn = document.querySelector("#breathBtn");
 const soundBtn = document.querySelector("#soundBtn");
 const resetBtn = document.querySelector("#resetBtn");
 const overlayStart = document.querySelector("#overlayStart");
 const modeDescriptionEl = document.querySelector("#modeDescription");
 const modeButtons = document.querySelectorAll(".mode-btn");
+const durationButtons = document.querySelectorAll("[data-duration]");
+const intensityButtons = document.querySelectorAll("[data-intensity]");
+const goalButtons = document.querySelectorAll("[data-goal]");
+const prepToggle = document.querySelector("#prepToggle");
+const calmToggle = document.querySelector("#calmToggle");
+const hapticToggle = document.querySelector("#hapticToggle");
 
 const colors = [
   { name: "azul", label: "Azul", value: "#3267d6" },
@@ -37,8 +47,15 @@ const shapes = [
   { name: "diamante", label: "diamante" },
 ];
 
-const totalTime = 60;
+const defaultDuration = 60;
 const bestKeyPrefix = "focoPrismaBestScore";
+const sessionsKeyPrefix = "focoPrismaSessions";
+const settingsKeyPrefix = "focoPrismaSetting";
+const intensityConfig = {
+  gentle: { name: "Leve", speed: 0.84, spawn: 0.16, penalty: 0.72, bonus: 0, target: 0.06 },
+  normal: { name: "Foco", speed: 1, spawn: 0, penalty: 1, bonus: 0, target: 0 },
+  pro: { name: "Pro", speed: 1.18, spawn: -0.08, penalty: 1.22, bonus: 5, target: -0.04 },
+};
 const modes = {
   selective: {
     name: "Alvo único",
@@ -63,9 +80,16 @@ let target = { color: colors[0], shape: shapes[0] };
 let sequence = [];
 let sequenceIndex = 0;
 let selectedMode = "selective";
+let sessionDuration = defaultDuration;
+let selectedIntensity = "normal";
+let dailyGoal = readSetting("dailyGoal", 3);
+let prepEnabled = readSetting("prepEnabled", true);
+let calmEffects = readSetting("calmEffects", false);
+let hapticEnabled = readSetting("hapticEnabled", true);
 let audioCtx = null;
 let soundEnabled = true;
 let bestScore = readBestScore();
+let todaySessions = readTodaySessions();
 
 function freshState() {
   return {
@@ -78,7 +102,7 @@ function freshState() {
     hits: 0,
     misses: 0,
     clicks: 0,
-    time: totalTime,
+    time: sessionDuration,
     level: 1,
     pieces: [],
     particles: [],
@@ -86,6 +110,10 @@ function freshState() {
     targetShift: 0,
     messageClock: 0,
     pulse: 0,
+    prep: prepEnabled ? 3 : 0,
+    started: !prepEnabled,
+    breath: 0,
+    wasPausedBeforeBreath: false,
   };
 }
 
@@ -149,7 +177,34 @@ function playTone(type) {
 }
 
 function bestKey() {
-  return `${bestKeyPrefix}:${selectedMode}`;
+  return `${bestKeyPrefix}:${selectedMode}:${sessionDuration}:${selectedIntensity}`;
+}
+
+function settingKey(name) {
+  return `${settingsKeyPrefix}:${name}`;
+}
+
+function readSetting(name, fallback) {
+  try {
+    const saved = localStorage.getItem(settingKey(name));
+    return saved === null ? fallback : JSON.parse(saved);
+  } catch {
+    return fallback;
+  }
+}
+
+function saveSetting(name, value) {
+  try {
+    localStorage.setItem(settingKey(name), JSON.stringify(value));
+  } catch {
+    // Local storage may be blocked for local files on some phones.
+  }
+}
+
+function todayKey() {
+  const now = new Date();
+  const date = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+  return `${sessionsKeyPrefix}:${date}`;
 }
 
 function readBestScore() {
@@ -157,6 +212,22 @@ function readBestScore() {
     return Number(localStorage.getItem(bestKey()) || 0);
   } catch {
     return 0;
+  }
+}
+
+function readTodaySessions() {
+  try {
+    return Number(localStorage.getItem(todayKey()) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function saveTodaySessions(value) {
+  try {
+    localStorage.setItem(todayKey(), String(value));
+  } catch {
+    // Local storage may be blocked for local files on some phones.
   }
 }
 
@@ -168,8 +239,17 @@ function saveBestScore(value) {
   }
 }
 
+function haptic(pattern) {
+  if (!hapticEnabled || !navigator.vibrate) return;
+  navigator.vibrate(pattern);
+}
+
 function modeInfo() {
   return modes[selectedMode];
+}
+
+function intensityInfo() {
+  return intensityConfig[selectedIntensity];
 }
 
 function randomTarget() {
@@ -197,6 +277,34 @@ function refreshModeUi() {
   bestEl.textContent = bestScore;
 }
 
+function refreshSettingsUi() {
+  durationButtons.forEach((button) => {
+    const active = Number(button.dataset.duration) === sessionDuration;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  intensityButtons.forEach((button) => {
+    const active = button.dataset.intensity === selectedIntensity;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  goalButtons.forEach((button) => {
+    const active = Number(button.dataset.goal) === dailyGoal;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", String(active));
+  });
+  prepToggle.checked = prepEnabled;
+  calmToggle.checked = calmEffects;
+  hapticToggle.checked = hapticEnabled;
+  document.body.classList.toggle("calm-effects", calmEffects);
+  bestScore = readBestScore();
+  bestEl.textContent = bestScore;
+  timeEl.textContent = sessionDuration;
+  todaySessions = readTodaySessions();
+  todayEl.textContent = todaySessions;
+  goalEl.textContent = `${Math.min(100, Math.round((todaySessions / dailyGoal) * 100))}%`;
+}
+
 function chooseTarget(forceDifferent = false) {
   if (selectedMode === "sequence") {
     target = sequence[sequenceIndex] || target;
@@ -205,9 +313,10 @@ function chooseTarget(forceDifferent = false) {
   }
 
   let next = target;
-  while (!next || !forceDifferent || next.color.name === target.color.name && next.shape.name === target.shape.name) {
+  let guard = 0;
+  while (!next || !forceDifferent || (next.color.name === target.color.name && next.shape.name === target.shape.name)) {
     next = randomTarget();
-    if (!forceDifferent) break;
+    if (!forceDifferent || ++guard > 40) break;
   }
 
   target = next;
@@ -241,7 +350,7 @@ function startGame() {
   pauseBtn.setAttribute("aria-pressed", "false");
   if (selectedMode === "sequence") setupSequence();
   chooseTarget(true);
-  setFeedback(modeInfo().ready);
+  setFeedback(prepEnabled ? "Prepare a atenção. Começa em 3..." : modeInfo().ready);
   playTone("shift");
   updateHud();
 }
@@ -259,6 +368,8 @@ function finishGame() {
   state.running = false;
   state.over = true;
   state.time = 0;
+  todaySessions += 1;
+  saveTodaySessions(todaySessions);
   if (state.score > bestScore) {
     bestScore = state.score;
     saveBestScore(bestScore);
@@ -266,23 +377,25 @@ function finishGame() {
 
   overlay.classList.add("show");
   overlay.querySelector("h2").textContent = finalTitle();
-  overlay.querySelector("p").textContent = `${modeInfo().name}. Foco: ${state.score}. Precisão: ${accuracy()}%. Melhor combo: ${state.bestStreak}. Recorde deste modo: ${bestScore}.`;
+  overlay.querySelector("p").textContent = `${modeInfo().name} - ${sessionDuration}s - ${intensityInfo().name}. Foco: ${state.score}. Qualidade: ${focusQuality()}/100. Precisão: ${accuracy()}%. Melhor combo: ${state.bestStreak}. Treinos hoje: ${todaySessions}.`;
   overlayStart.textContent = "Jogar de novo";
   stateEl.textContent = "Finalizado";
   setFeedback("Sessão concluída. Tente melhorar a precisão antes da velocidade.");
   playTone("combo");
+  haptic([45, 40, 45]);
   updateHud();
 }
 
 function finalTitle() {
-  if (state.score >= 700 && accuracy() >= 82) return "Foco profissional";
-  if (state.score >= 420) return "Otimo treino";
+  if (focusQuality() >= 88) return "Foco profissional";
+  if (focusQuality() >= 72) return "Ótimo treino";
   if (accuracy() >= 75) return "Boa precisão";
   return "Continue treinando";
 }
 
 function spawnPiece(width, height) {
-  const isTargetSeed = Math.random() < Math.min(0.44, 0.3 + state.level * 0.025);
+  const config = intensityInfo();
+  const isTargetSeed = Math.random() < Math.min(0.48, 0.3 + state.level * 0.025 + config.target);
   let color = isTargetSeed ? target.color : colors[Math.floor(Math.random() * colors.length)];
   let shape = isTargetSeed ? target.shape : shapes[Math.floor(Math.random() * shapes.length)];
 
@@ -298,7 +411,7 @@ function spawnPiece(width, height) {
     size,
     color,
     shape,
-    speed: 78 + state.level * 22 + Math.random() * 54,
+    speed: (78 + state.level * 22 + Math.random() * 54) * config.speed,
     wobble: Math.random() * Math.PI * 2,
     rotation: Math.random() * Math.PI,
     spin: (Math.random() > 0.5 ? 1 : -1) * (0.55 + Math.random() * 0.8),
@@ -311,15 +424,51 @@ function spawnPiece(width, height) {
 function loop(now) {
   const dt = Math.min(0.04, (now - lastFrame) / 1000 || 0);
   lastFrame = now;
+  updateBreath(dt);
   if (state.running && !state.paused) update(dt);
   draw();
   requestAnimationFrame(loop);
 }
 
+function updateBreath(dt) {
+  if (state.breath <= 0) return;
+  state.breath = Math.max(0, state.breath - dt);
+  stateEl.textContent = "Respirar";
+  const phase = breathPhase();
+  setFeedback(phase);
+  if (state.breath === 0) {
+    state.paused = state.wasPausedBeforeBreath;
+    pauseBtn.textContent = state.paused ? "Continuar" : "Pausar";
+    pauseBtn.setAttribute("aria-pressed", String(state.paused));
+    setFeedback(state.paused ? "Respiração feita. Continue quando quiser." : "Respiração feita. Volte ao alvo com calma.");
+    haptic(35);
+  }
+}
+
+function breathPhase() {
+  const step = Math.ceil(state.breath);
+  if (state.breath > 8) return `Inspire pelo nariz... ${step}`;
+  if (state.breath > 4) return `Segure suave... ${step}`;
+  return `Solte devagar... ${step}`;
+}
+
 function update(dt) {
-  const box = canvas.getBoundingClientRect();
+  const box = canvasBox;
+  if (state.prep > 0) {
+    state.prep = Math.max(0, state.prep - dt);
+    if (state.prep > 0) {
+      stateEl.textContent = "Preparar";
+      setFeedback(`Respire. Começa em ${Math.ceil(state.prep)}...`);
+      updateHud();
+      return;
+    }
+    state.started = true;
+    setFeedback(modeInfo().ready);
+    playTone("shift");
+  }
+
   state.time -= dt;
-  state.level = Math.min(9, 1 + Math.floor((totalTime - state.time) / 8));
+  state.level = Math.min(9, 1 + Math.floor((sessionDuration - state.time) / Math.max(5, sessionDuration / 7)));
   state.targetShift += dt;
   state.messageClock -= dt;
   state.pulse = (state.pulse + dt) % Math.max(1.05, 1.65 - state.level * 0.05);
@@ -327,7 +476,7 @@ function update(dt) {
   spawnClock -= dt;
   if (spawnClock <= 0) {
     spawnPiece(box.width, box.height);
-    spawnClock = Math.max(0.18, 0.74 - state.level * 0.055);
+    spawnClock = Math.max(0.16, 0.74 - state.level * 0.055 + intensityInfo().spawn);
   }
 
   for (const piece of state.pieces) {
@@ -346,9 +495,10 @@ function update(dt) {
   if (escapedTargets > 0) {
     state.misses += escapedTargets;
     state.streak = 0;
-    state.score = Math.max(0, state.score - escapedTargets * 9);
+    state.score = Math.max(0, state.score - Math.round(escapedTargets * 9 * intensityInfo().penalty));
     setFeedback("Um alvo passou. Respira e volta ao ritmo.");
     playTone("miss");
+    haptic([20, 20, 20]);
   }
 
   state.ripples = state.ripples.filter((ripple) => {
@@ -377,12 +527,49 @@ function update(dt) {
 }
 
 function draw() {
-  const box = canvas.getBoundingClientRect();
+  const box = canvasBox;
   ctx.clearRect(0, 0, box.width, box.height);
   drawBackground(box.width, box.height);
   for (const piece of state.pieces) drawPiece(piece);
   for (const particle of state.particles) drawParticle(particle);
   for (const ripple of state.ripples) drawRipple(ripple);
+  if (state.running && state.prep > 0) drawPrep(box.width, box.height);
+  if (state.breath > 0) drawBreath(box.width, box.height);
+}
+
+function drawPrep(width, height) {
+  ctx.save();
+  ctx.fillStyle = "rgba(23, 33, 37, 0.48)";
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "#fffaf0";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "800 82px system-ui, sans-serif";
+  ctx.fillText(String(Math.ceil(state.prep)), width / 2, height / 2);
+  ctx.font = "800 18px system-ui, sans-serif";
+  ctx.fillText("respire e prepare o foco", width / 2, height / 2 + 70);
+  ctx.restore();
+}
+
+function drawBreath(width, height) {
+  const phase = breathPhase();
+  const cycle = (12 - state.breath) / 12;
+  const wave = 0.5 + Math.sin(cycle * Math.PI * 2) * 0.5;
+  const radius = 58 + wave * 72;
+  ctx.save();
+  ctx.fillStyle = "rgba(23, 33, 37, 0.68)";
+  ctx.fillRect(0, 0, width, height);
+  ctx.strokeStyle = "#7ee6c8";
+  ctx.lineWidth = 5;
+  ctx.beginPath();
+  ctx.arc(width / 2, height / 2 - 20, radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "#fffaf0";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.font = "800 24px system-ui, sans-serif";
+  ctx.fillText(phase, width / 2, height / 2 + 88);
+  ctx.restore();
 }
 
 function drawBackground(width, height) {
@@ -488,6 +675,8 @@ function drawParticle(particle) {
 }
 
 function burst(x, y, color, good) {
+  if (calmEffects) return;
+  if (state.particles.length > 180) return;
   const count = good ? 14 : 8;
   for (let i = 0; i < count; i += 1) {
     const angle = (Math.PI * 2 * i) / count + Math.random() * 0.35;
@@ -516,7 +705,7 @@ function hitTest(x, y) {
 }
 
 function handlePointer(event) {
-  if (!state.running || state.paused) return;
+  if (!state.running || state.paused || state.prep > 0) return;
   const rect = canvas.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const y = event.clientY - rect.top;
@@ -536,22 +725,24 @@ function handlePointer(event) {
     burst(x, y, hit.piece.color.value, true);
     afterGoodHit();
     playTone(state.streak > 0 && state.streak % 6 === 0 ? "combo" : "hit");
+    haptic(18);
     pulse(streakEl);
   } else {
     state.misses += 1;
     state.streak = 0;
-    state.score = Math.max(0, state.score - 20);
+    state.score = Math.max(0, state.score - Math.round(20 * intensityInfo().penalty));
     state.ripples.push({ x, y, radius: 5, life: 0.45, good: false });
     burst(x, y, "#ffb1a8", false);
     setFeedback(validTarget && !validPulse ? "Boa mira, mas tocou antes do pulso. Espere o anel acender." : "Distração tocada. Repare no alvo e tente de novo.");
     playTone("miss");
+    haptic([25, 25, 25]);
   }
   updateHud();
 }
 
 function scoreForHit() {
   const modeBonus = selectedMode === "sequence" ? 8 : selectedMode === "pulse" ? 10 : 0;
-  return 14 + state.streak * 3 + state.level + modeBonus;
+  return 14 + state.streak * 3 + state.level + modeBonus + intensityInfo().bonus;
 }
 
 function afterGoodHit() {
@@ -594,9 +785,17 @@ function accuracy() {
   return Math.round((state.hits / state.clicks) * 100);
 }
 
+function focusQuality() {
+  const precision = accuracy();
+  const calm = Math.max(0, 100 - state.misses * 7);
+  const combo = Math.min(100, state.bestStreak * 9);
+  return Math.round(precision * 0.55 + calm * 0.25 + combo * 0.2);
+}
+
 function tempoLabel() {
   if (!state.running && !state.over) return "Calmo";
-  if (state.level >= 7) return "Intenso";
+  if (selectedIntensity === "pro" || state.level >= 7) return "Intenso";
+  if (selectedIntensity === "gentle") return "Leve";
   if (state.level >= 4) return "Médio";
   return "Calmo";
 }
@@ -607,9 +806,11 @@ function updateHud() {
   timeEl.textContent = Math.max(0, Math.ceil(state.time));
   bestEl.textContent = bestScore;
   accuracyEl.textContent = `${accuracy()}%`;
+  qualityEl.textContent = focusQuality();
   levelEl.textContent = state.level;
   tempoEl.textContent = tempoLabel();
-  timebarFill.style.transform = `scaleX(${Math.max(0, state.time / totalTime)})`;
+  todayEl.textContent = todaySessions;
+  timebarFill.style.transform = `scaleX(${Math.max(0, state.time / sessionDuration)})`;
   if (state.running && !state.paused) stateEl.textContent = "Em jogo";
 }
 
@@ -624,6 +825,7 @@ function resetGame() {
   pauseBtn.textContent = "Pausar";
   pauseBtn.setAttribute("aria-pressed", "false");
   setFeedback(modeInfo().ready);
+  refreshSettingsUi();
   updateHud();
   draw();
 }
@@ -635,19 +837,77 @@ function changeMode(mode) {
   resetGame();
 }
 
-window.addEventListener("resize", resizeCanvas);
+function changeDuration(duration) {
+  sessionDuration = duration;
+  resetGame();
+}
+
+function changeIntensity(intensity) {
+  if (!intensityConfig[intensity]) return;
+  selectedIntensity = intensity;
+  resetGame();
+}
+
+function changeDailyGoal(goal) {
+  dailyGoal = goal;
+  saveSetting("dailyGoal", dailyGoal);
+  refreshSettingsUi();
+  updateHud();
+}
+
+function startBreathingPause() {
+  if (!state.running || state.over) {
+    setFeedback("Respire fundo antes de começar. Clique em Começar quando estiver pronto.");
+    return;
+  }
+  state.wasPausedBeforeBreath = state.paused;
+  state.paused = true;
+  state.breath = 12;
+  pauseBtn.textContent = "Continuar";
+  pauseBtn.setAttribute("aria-pressed", "true");
+  overlay.classList.remove("show");
+  haptic(30);
+}
+
+window.addEventListener("resize", () => { resizeCanvas(); canvasBox = canvas.getBoundingClientRect(); });
 canvas.addEventListener("pointerdown", handlePointer);
 startBtn.addEventListener("click", startGame);
 overlayStart.addEventListener("click", startGame);
 pauseBtn.addEventListener("click", pauseGame);
+breathBtn.addEventListener("click", startBreathingPause);
 resetBtn.addEventListener("click", resetGame);
 modeButtons.forEach((button) => {
   button.addEventListener("click", () => changeMode(button.dataset.mode));
 });
+durationButtons.forEach((button) => {
+  button.addEventListener("click", () => changeDuration(Number(button.dataset.duration)));
+});
+intensityButtons.forEach((button) => {
+  button.addEventListener("click", () => changeIntensity(button.dataset.intensity));
+});
+prepToggle.addEventListener("change", () => {
+  prepEnabled = prepToggle.checked;
+  saveSetting("prepEnabled", prepEnabled);
+  resetGame();
+});
+calmToggle.addEventListener("change", () => {
+  calmEffects = calmToggle.checked;
+  saveSetting("calmEffects", calmEffects);
+  refreshSettingsUi();
+});
+hapticToggle.addEventListener("change", () => {
+  hapticEnabled = hapticToggle.checked;
+  saveSetting("hapticEnabled", hapticEnabled);
+  refreshSettingsUi();
+  if (hapticEnabled) haptic(25);
+});
+goalButtons.forEach((button) => {
+  button.addEventListener("click", () => changeDailyGoal(Number(button.dataset.goal)));
+});
 soundBtn.addEventListener("click", () => {
   soundEnabled = !soundEnabled;
   soundBtn.textContent = soundEnabled ? "Som ligado" : "Som desligado";
-  soundBtn.setAttribute("aria-pressed", String(!soundEnabled));
+  soundBtn.setAttribute("aria-pressed", String(soundEnabled));
   if (soundEnabled) {
     ensureAudio();
     playTone("hit");
@@ -655,7 +915,9 @@ soundBtn.addEventListener("click", () => {
 });
 
 resizeCanvas();
+let canvasBox = canvas.getBoundingClientRect();
 refreshModeUi();
+refreshSettingsUi();
 chooseTarget();
 updateHud();
 requestAnimationFrame(loop);
