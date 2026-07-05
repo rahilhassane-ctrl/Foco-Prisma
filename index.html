@@ -53,14 +53,61 @@
         <div class="controls" aria-label="Controlos">
           <button id="startBtn" class="primary" type="button">Começar</button>
           <button id="pauseBtn" type="button" aria-pressed="false">Pausar</button>
-          <button id="soundBtn" type="button" aria-pressed="false">Som ligado</button>
+          <button id="breathBtn" type="button">Respirar</button>
+          <button id="soundBtn" type="button" aria-pressed="true">Som ligado</button>
           <button id="resetBtn" type="button">Reiniciar</button>
+        </div>
+      </section>
+
+      <section class="settings" aria-label="Configuracoes do treino">
+        <div class="setting-group">
+          <span>Duração</span>
+          <div class="segmented" aria-label="Escolher tempo">
+            <button class="setting-btn" type="button" data-duration="30" aria-pressed="false">30s</button>
+            <button class="setting-btn active" type="button" data-duration="60" aria-pressed="true">60s</button>
+            <button class="setting-btn" type="button" data-duration="90" aria-pressed="false">90s</button>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <span>Intensidade</span>
+          <div class="segmented" aria-label="Escolher intensidade">
+            <button class="setting-btn" type="button" data-intensity="gentle" aria-pressed="false">Leve</button>
+            <button class="setting-btn active" type="button" data-intensity="normal" aria-pressed="true">Foco</button>
+            <button class="setting-btn" type="button" data-intensity="pro" aria-pressed="false">Pro</button>
+          </div>
+        </div>
+
+        <label class="switch">
+          <input id="prepToggle" type="checkbox" checked />
+          <span>Preparação de 3s</span>
+        </label>
+
+        <label class="switch">
+          <input id="calmToggle" type="checkbox" />
+          <span>Foco calmo</span>
+        </label>
+
+        <label class="switch">
+          <input id="hapticToggle" type="checkbox" checked />
+          <span>Vibração</span>
+        </label>
+
+        <div class="setting-group">
+          <span>Meta diária</span>
+          <div class="segmented" aria-label="Escolher meta diária">
+            <button class="setting-btn active" type="button" data-goal="3" aria-pressed="true">3</button>
+            <button class="setting-btn" type="button" data-goal="5" aria-pressed="false">5</button>
+            <button class="setting-btn" type="button" data-goal="8" aria-pressed="false">8</button>
+          </div>
         </div>
       </section>
 
       <section class="stage-wrap" aria-label="Area de treino">
         <div class="timebar" aria-hidden="true"><span id="timebarFill"></span></div>
-        <canvas id="game" width="1120" height="660"></canvas>
+        <canvas id="game" width="1120" height="660">
+          Jogo interativo de treino de foco. Toque nas peças que correspondem ao alvo indicado.
+        </canvas>
         <div class="feedback" id="feedback" aria-live="polite">Respire. Observe. Toque apenas no alvo.</div>
 
         <div class="overlay show" id="overlay">
@@ -79,12 +126,24 @@
           <strong id="accuracy">100%</strong>
         </div>
         <div>
+          <span>Qualidade</span>
+          <strong id="quality">100</strong>
+        </div>
+        <div>
           <span>Nível</span>
           <strong id="level">1</strong>
         </div>
         <div>
           <span>Ritmo</span>
           <strong id="tempo">Calmo</strong>
+        </div>
+        <div>
+          <span>Hoje</span>
+          <strong id="today">0</strong>
+        </div>
+        <div>
+          <span>Meta</span>
+          <strong id="goal">0%</strong>
         </div>
         <div>
           <span>Estado</span>
